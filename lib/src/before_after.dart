@@ -3,6 +3,7 @@ import 'package:before_after/src/rect_clipper.dart';
 import 'package:before_after/src/slider_painter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 part 'two_directional_slider.dart';
@@ -301,7 +302,14 @@ class _BeforeAfterState extends State<BeforeAfter>
         curve: Curves.fastOutSlowIn,
       ),
       onThumbRectChanged: (thumbRect) {
-        _thumbRect = thumbRect;
+        if (thumbRect != _thumbRect) {
+          _thumbRect = thumbRect;
+          if (mounted && widget.thumbBuilder != null) {
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() {});
+            });
+          }
+        }
       },
     );
     _actionMap = <Type, Action<Intent>>{
@@ -534,35 +542,50 @@ class _BeforeAfterState extends State<BeforeAfter>
                   ),
                   child: after,
                 ),
-                CustomPaint(
-                  painter: _painter
-                    ..axis = widget.direction
-                    ..value = widget.value
-                    ..trackWidth = effectiveTrackWidth
-                    ..trackColor = effectiveTrackColor
-                    ..hideThumb = widget.hideThumb
-                    ..useCustomThumb = widget.thumbBuilder != null
-                    ..thumbValue = widget.thumbPosition
-                    ..thumbHeight = effectiveThumbHeight
-                    ..thumbWidth = effectiveThumbWidth
-                    ..overlayColor = effectiveOverlayColor
-                    ..configuration = createLocalImageConfiguration(context)
-                    ..thumbDecoration = effectiveThumbDecoration,
-                  child: Hide(child: after),
+                // Inner stack so custom thumb uses same coordinate system as painter/track
+                Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    CustomPaint(
+                      painter: _painter
+                        ..axis = widget.direction
+                        ..value = widget.value
+                        ..trackWidth = effectiveTrackWidth
+                        ..trackColor = effectiveTrackColor
+                        ..hideThumb = widget.hideThumb
+                        ..useCustomThumb = widget.thumbBuilder != null
+                        ..thumbValue = widget.thumbPosition
+                        ..thumbHeight = effectiveThumbHeight
+                        ..thumbWidth = effectiveThumbWidth
+                        ..overlayColor = effectiveOverlayColor
+                        ..configuration = createLocalImageConfiguration(context)
+                        ..thumbDecoration = effectiveThumbDecoration,
+                      child: Hide(child: after),
+                    ),
+                    if (widget.thumbBuilder != null)
+                      _thumbRect != null
+                          ? Positioned.fromRect(
+                              rect: _thumbRect!,
+                              child: Center(
+                                child: widget.thumbBuilder!(context),
+                              ),
+                            )
+                          : Align(
+                              alignment: widget.direction ==
+                                      SliderDirection.horizontal
+                                  ? Alignment(
+                                      widget.value * 2 - 1,
+                                      widget.thumbPosition * 2 - 1,
+                                    )
+                                  : Alignment(
+                                      widget.thumbPosition * 2 - 1,
+                                      widget.value * 2 - 1,
+                                    ),
+                              child: widget.thumbBuilder!(context),
+                            ),
+                  ],
                 ),
-                if (widget.thumbBuilder != null)
-                  Align(
-                    alignment: widget.direction == SliderDirection.horizontal
-                        ? Alignment(
-                            widget.value * 2 - 1,
-                            widget.thumbPosition * 2 - 1,
-                          )
-                        : Alignment(
-                            widget.thumbPosition * 2 - 1,
-                            widget.value * 2 - 1,
-                          ),
-                    child: widget.thumbBuilder!(context),
-                  ),
               ],
             ),
           ),
