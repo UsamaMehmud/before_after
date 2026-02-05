@@ -181,6 +181,19 @@ class SliderPainter extends ChangeNotifier implements CustomPainter {
     }
   }
 
+  /// When true, the thumb and its overlay are not drawn (e.g. when using a
+  /// custom thumb widget). The track is still drawn and [onThumbRectChanged]
+  /// is still invoked for hit testing.
+  bool get useCustomThumb => _useCustomThumb ?? false;
+  bool? _useCustomThumb;
+
+  set useCustomThumb(bool value) {
+    if (_useCustomThumb != value) {
+      _useCustomThumb = value;
+      notifyListeners();
+    }
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     // Clip the canvas to the size of the slider so that we don't draw outside.
@@ -252,6 +265,11 @@ class SliderPainter extends ChangeNotifier implements CustomPainter {
 
     // Notify the listener of the thumb rect.
     _onThumbRectChanged?.call(thumbRect);
+
+    // When using a custom thumb widget, skip drawing the thumb and overlay.
+    if (useCustomThumb) {
+      return;
+    }
 
     // Draw the thumb overlay.
     if (!_overlayAnimation.isDismissed) {

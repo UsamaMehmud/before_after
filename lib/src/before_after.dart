@@ -32,6 +32,8 @@ enum SliderDirection {
 ///   - [thumbRadius]: The radius of the slider thumb.
 ///   - [overlayColor]: The color of the overlay when the images are revealed.
 ///   - [thumbImage]: The image to be displayed on the slider thumb.
+///   - [thumbBuilder]: A builder that creates a custom widget to use as the thumb
+///     instead of the default painted thumb.
 ///
 /// The position of the slider thumb can be controlled using [thumbPosition].
 /// The [onThumbPositionChanged] callback is called when the position of the thumb changes, providing the updated position.
@@ -60,6 +62,7 @@ class BeforeAfter extends StatefulWidget {
     this.thumbPosition = 0.5,
     this.thumbDivisions,
     this.onThumbPositionChanged,
+    this.thumbBuilder,
     this.mouseCursor,
     this.focusNode,
     this.autofocus = false,
@@ -138,6 +141,13 @@ class BeforeAfter extends StatefulWidget {
   /// A callback function that is called when the position of the thumb changes.
   final ValueChanged<double>? onThumbPositionChanged;
 
+  /// Optional builder that provides a custom widget to use as the slider thumb
+  /// instead of the default painted thumb. When set, the default thumb shape
+  /// and overlay are not drawn; the track is still drawn. The built widget is
+  /// centered at the thumb position. [thumbWidth] and [thumbHeight] are still
+  /// used for the reported thumb rect (e.g. for hover hit testing).
+  final Widget Function(BuildContext context)? thumbBuilder;
+
   /// {@macro flutter.widgets.Focus.focusNode}
   final FocusNode? focusNode;
 
@@ -200,6 +210,8 @@ class BeforeAfter extends StatefulWidget {
         'onValueChanged', onValueChanged));
     properties.add(ObjectFlagProperty<ValueChanged<double>>.has(
         'onThumbPositionChanged', onThumbPositionChanged));
+    properties.add(ObjectFlagProperty<Widget Function(BuildContext)>(
+        'thumbBuilder', thumbBuilder));
     properties
         .add(DiagnosticsProperty<MouseCursor>('mouseCursor', mouseCursor));
   }
@@ -529,6 +541,7 @@ class _BeforeAfterState extends State<BeforeAfter>
                     ..trackWidth = effectiveTrackWidth
                     ..trackColor = effectiveTrackColor
                     ..hideThumb = widget.hideThumb
+                    ..useCustomThumb = widget.thumbBuilder != null
                     ..thumbValue = widget.thumbPosition
                     ..thumbHeight = effectiveThumbHeight
                     ..thumbWidth = effectiveThumbWidth
@@ -537,6 +550,19 @@ class _BeforeAfterState extends State<BeforeAfter>
                     ..thumbDecoration = effectiveThumbDecoration,
                   child: Hide(child: after),
                 ),
+                if (widget.thumbBuilder != null)
+                  Align(
+                    alignment: widget.direction == SliderDirection.horizontal
+                        ? Alignment(
+                            widget.value * 2 - 1,
+                            widget.thumbPosition * 2 - 1,
+                          )
+                        : Alignment(
+                            widget.thumbPosition * 2 - 1,
+                            widget.value * 2 - 1,
+                          ),
+                    child: widget.thumbBuilder!(context),
+                  ),
               ],
             ),
           ),
